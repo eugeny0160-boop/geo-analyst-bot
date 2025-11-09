@@ -1,0 +1,8 @@
+requests
+feedparser
+python-telegram-bot==20.8
+supabase
+apscheduler
+python-dotenv
+openai
+pytz
