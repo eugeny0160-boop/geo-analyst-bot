@@ -1,22 +1,33 @@
-from supabase import create_client, Client
-from config import SUPABASE_URL, SUPABASE_KEY
+# database.py
 
-supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+import asyncpg
+import os
+import json
 
-def save_article(title: str, url: str, pub_date: str, content: str):
-    supabase.table("articles").insert({
-        "title": title,
-        "url": url,
-        "pub_date": pub_date,
-        "content": content
-    }).execute()
+SUPABASE_URL = os.getenv("SUPABASE_URL")
+SUPABASE_KEY = os.getenv("SUPABASE_KEY")
 
-def get_articles_by_date_range(start_date: str, end_date: str):
-    return supabase.table("articles").select("*").gte("pub_date", start_date).lte("pub_date", end_date).execute()
+async def save_article_to_db(original_text: str, analysis: dict):
+    """
+    Сохраняет статью и её анализ в таблицу 'articles' в Supabase.
+    """
+    conn = None
+    try:
+        conn = await asyncpg.connect(SUPABASE_URL + "?sslmode=require", password=SUPABASE_KEY)
 
-def is_article_processed(title: str):
-    result = supabase.table("processed_articles").select("*").eq("title", title).execute()
-    return len(result.data) > 0
+        # Вставляем данные
+        await conn.execute("""
+            INSERT INTO articles (title, content, analysis, created_at)
+            VALUES ($1, $2, $3, NOW())
+        """, 
+        analysis.get("title", "Без заголовка"), 
+        original_text, 
+        json.dumps(analysis))  # Сохраняем анализ как JSON
 
-def mark_article_as_processed(title: str):
-    supabase.table("processed_articles").insert({"title": title}).execute()
+        print("✅ Статья сохранена в базу.")
+
+    except Exception as e:
+        print(f"❌ Ошибка сохранения в базу: {e}")
+    finally:
+        if conn:
+            await conn.close()
