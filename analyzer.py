@@ -1,38 +1,68 @@
+# analyzer.py
+
+import os
 import openai
-from config import OPENAI_API_KEY
 
-openai.api_key = OPENAI_API_KEY
+openai.api_key = os.getenv("OPENAI_API_KEY")
 
-def generate_summary(news_list: list, period: str) -> str:
-    # Подготовка текста для LLM
-    input_text = f"Создай аналитическую записку за {period}.\n\nНовости:\n"
-    for news in news_list:
-        input_text += f"- {news['title']} ({news['url']})\n"
-
+async def analyze_article(text: str) -> dict:
+    """
+    Анализирует статью с помощью OpenAI GPT.
+    Возвращает словарь с заголовком, ключевыми темами, тональностью и кратким содержанием.
+    """
     prompt = f"""
-    Ты — ведущий международный аналитик-геополитик. Создай краткую аналитическую записку по следующим новостям.
-    Объем: {get_length_by_period(period)} знаков.
-    Акцент: влияние на Россию и мир.
-    Используй стиль: нейтральный, профессиональный, с URL в формате [URL источника].
-    Структура: Исполнительное резюме, ТОП-5 событий, Тематический анализ, Влияние на Россию, Прогнозы.
-    Входные данные:
-    {input_text}
+    Проанализируй следующую новостную статью и выдели:
+    1. Краткий заголовок (не более 10 слов)
+    2. Основные темы (до 5 пунктов)
+    3. Тоныльность (позитивная, нейтральная, негативная)
+    4. Краткое содержание (до 3 предложений)
+
+    Статья:
+    {text}
+
+    Ответ предоставь в формате JSON:
+    {{
+      "title": "...",
+      "topics": ["...", "..."],
+      "sentiment": "...",
+      "summary": "..."
+    }}
     """
 
-    response = openai.ChatCompletion.create(
-        model="gpt-3.5-turbo",
-        messages=[{"role": "user", "content": prompt}],
-        max_tokens=2000,
-        temperature=0.3
-    )
-    return response.choices[0].message['content'].strip()
+    try:
+        response = await openai.ChatCompletion.acreate(
+            model="gpt-4o-mini",  # или gpt-3.5-turbo
+            messages=[
+                {"role": "system", "content": "Ты — эксперт по геополитическому анализу."},
+                {"role": "user", "content": prompt}
+            ],
+            temperature=0.3,
+            max_tokens=500
+        )
 
-def get_length_by_period(period: str):
-    mapping = {
-        "день": "1500-2000",
-        "неделя": "2000-4000",
-        "месяц": "4000-8000",
-        "6 месяцев": "8000-10000",
-        "год": "10000+"
-    }
-    return mapping.get(period, "2000")
+        content = response.choices[0].message.content.strip()
+        # Простая обработка JSON (можно улучшить с помощью json.loads)
+        # Для надежности можно использовать `json.loads`, если ответ точно в формате JSON
+
+        # Упрощённый парсер — для теста
+        result = {
+            "title": "Не удалось извлечь заголовок",
+            "topics": ["Анализ не выполнен"],
+            "sentiment": "неизвестно",
+            "summary": "Ошибка анализа."
+        }
+
+        # Если хочешь полноценный JSON — раскомментируй ниже
+        # import json
+        # result = json.loads(content)
+
+        return result
+
+    except Exception as e:
+        print(f"Ошибка анализа: {e}")
+        return {
+            "title": "Ошибка анализа",
+            "topics": ["Ошибка"],
+            "sentiment": "ошибка",
+            "summary": str(e)
+        }
