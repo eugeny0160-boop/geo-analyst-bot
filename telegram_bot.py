@@ -12,12 +12,19 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# ID бота, который отправляет статьи (замените на реальный!)
-SOURCE_BOT_ID = 123456789  # ← ЗАМЕНИ НА ID ТВОЕГО ПЕРВОГО БОТА!
+# ID первого бота (который отправляет статьи)
+SOURCE_BOT_ID = 8325055385 # ← ЗАМЕНИ НА РЕАЛЬНЫЙ ID ПЕРВОГО БОТА!
+
+# ID каналов, из которых читаем (вставь сюда правильные ID, начинающиеся с -100...)
+CHANNEL_IDS = [2923537056, 2914190770]
 
 async def handle_article(update: Update, context: ContextTypes.DEFAULT_TYPE):
     message = update.effective_message
-    if not message or not message.from_user:
+    if not message or not message.from_user or not message.chat:
+        return
+
+    # Проверяем, что сообщение пришло из нужного канала
+    if message.chat.id not in CHANNEL_IDS:
         return
 
     # Проверяем, что сообщение от нужного бота
@@ -27,7 +34,7 @@ async def handle_article(update: Update, context: ContextTypes.DEFAULT_TYPE):
             logger.info("Пустое сообщение от бота — пропускаем.")
             return
 
-        logger.info(f"Получено сообщение от бота: {text[:100]}...")
+        logger.info(f"Получено сообщение от бота в канале {message.chat.title}: {text[:100]}...")
 
         try:
             # Импортируем анализатор
@@ -56,7 +63,7 @@ def main():
     # Добавляем обработчик сообщений
     app.add_handler(MessageHandler(filters.TEXT | filters.CAPTION, handle_article))
 
-    logger.info("🚀 Бот запущен и слушает канал...")
+    logger.info("🚀 Бот запущен и слушает каналы...")
     app.run_polling()
 
 if __name__ == '__main__':
